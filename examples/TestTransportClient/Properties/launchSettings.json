@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "TestProjectDirectorClient": {
+      "commandName": "Project",
+      "commandLineArgs": "/resourceUrl \"https://transport-api.transperfect.com\" /authorityUri \"https://sso-stg.transperfect.com/connect/token\" /userName \"sduffy@transper.com\" /password \"c5u2962vmg4VBhur\" /clientSecret \"XSwDTqbNG4CnsUEHKSluaJoyhaUOpdTa\" /clientId \"4ExceyCLjkSHPEIhgODtEWRzg2F3fEPY\" /clientScopes \"\" /grantType \"password\""
+    }
+  }
+}
