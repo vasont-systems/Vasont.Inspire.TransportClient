@@ -5,53 +5,196 @@
 //-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient
 {
+    using Newtonsoft.Json;
     using System;
+    using System.Collections.Generic;
     using System.IO;
-    using System.IO.Enumeration;
-    using System.Net;
-    using System.Net.Cache;
     using System.Net.Http;
-    using System.Text;
+    using System.Net.Http.Headers;
     using System.Threading;
     using System.Threading.Tasks;
-    using IdentityModel.Client;
-    using Newtonsoft.Json;
-    using Vasont.Inspire.Core.Errors;
-    using Vasont.Inspire.Models.Common;
-    using Vasont.Inspire.TransportClient.Extensions;
     using Vasont.Inspire.TransportClient.Models;
-    using Vasont.Inspire.TransportClient.Properties;
-    using Vasont.Inspire.TransportClient.Settings;
+    using Vasont.Inspire.TransportClient.Models.Internal;
 
+    /// <summary>
+    /// This class represents the <see cref="TransportClient"/> that facilitates interacting with the Transport REST APIs.
+    /// </summary>
     public class TransportClient : BaseClient
     {
-        public TransportClient(TransportConfigurationModel configurationModel)
-            : base(configurationModel)
+        public TransportClient(TransportAuthenticationModel authenticationModel)
+            : base(authenticationModel)
         {
         }
 
-        public async Task<bool> RetrieveProjectTempaltesAsync(CancellationToken cancellationToken = default(CancellationToken))
+        #region Public-facing Methods
+
+        /// <summary>
+        /// This method will submit the project to Transport. This is a wrapper method that hides the many details involved in submitting
+        /// a project to Transport.
+        /// </summary>
+        /// <param name="projectModel">The <see cref="TransportSubmissionProjectModel"/> model that carries the project info.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns a <see cref="TransportSubmissionResponseModel"/> model.</returns>
+        public async Task<TransportSubmissionResponseModel> SubmitProjectAsync(TransportSubmissionProjectModel projectModel, CancellationToken cancellationToken = default(CancellationToken))
         {
-            // If we're not authenticated then call the Authenticate method
-            if (!this.HasAuthenticated)
+            TransportProjectTemplateModel projectTemplateResponseModel;
+            TransportProjectTemplateModel projectCreateResponseModel = null;
+            TransportSubmissionResponseModel responseModel = null;
+            TransportProjectRequestModel requestModel = new TransportProjectRequestModel();
+
+            // Authenticate to make sure we can communicate with Transport
+            if (EnsureAuthentication(cancellationToken).Result)
             {
-                await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false);
+                // Step-1: retrieve the project template
+                projectTemplateResponseModel = await this.RetrieveProjectTemplatesAsync(cancellationToken);
+
+                if (projectTemplateResponseModel != null && projectTemplateResponseModel.ProjectId.Length > 0)
+                {
+                    // Step-2: we've got a project template, now upload files
+                    if (projectModel.FilesToUpload != null && projectModel.FilesToUpload.Count > 0)
+                    {
+                        // we've got some files to upload, and also to add to the Files collection of a Transport project 
+                        TransportFileUploadResponseModel fileUploadResponseModel = null;
+                        foreach (TransportSubmissionProjectFileModel projectFile in projectModel.FilesToUpload)
+                        {
+                            TransportFileUploadRequestModel file = new TransportFileUploadRequestModel
+                            {
+                                FilePath = projectFile.FilePath,
+                                FileStream = projectFile.FileStream,
+                                TargetFolderId = new Guid(projectTemplateResponseModel.Folders.SourceFiles),
+                                OverwriteFile = true,
+                            };
+
+                            fileUploadResponseModel = await this.UploadFilesAsync(file, cancellationToken);
+
+                            if (fileUploadResponseModel != null && fileUploadResponseModel.Error == null)
+                            {
+                                requestModel.Files.Add(
+                                    new TransportProjectFilesModel
+                                    {
+                                        FileId = fileUploadResponseModel.FileId,
+                                        Operation = 2,
+                                        FileName = $"{fileUploadResponseModel.FileName}.{fileUploadResponseModel.FileType}",
+                                        TargetFolderId = fileUploadResponseModel.FolderId
+                                    });
+                            }
+                            else
+                            {
+                                // upload failed, halt creating the project and return
+                                this.LastErrorResponse.Messages.Add(new Inspire.Models.Common.ErrorModel
+                                {
+                                    ErrorType = Core.Errors.ErrorType.Critical,
+                                    Message = "Failed to upload one or more files to Transport as part of the project creation."
+                                });
+                            }
+                        }
+
+                        // Step-3: if all files have been uploaded then proceed to create the project
+                        requestModel.ProjectId = new Guid(projectTemplateResponseModel.ProjectId);
+                        requestModel.ProjectName = projectModel.ProjectName;
+                        requestModel.SourceLanguage = projectModel.SourceLanguage;
+                        requestModel.TargetLanguages = projectModel.TargetLanguages;
+                        requestModel.DeadlineTypes = new List<string> { "TurnaroundTime" };
+                        requestModel.TurnaroundTime = 0;
+                        requestModel.QuoteRequired = true;
+                        requestModel.Description = projectModel.ProjectDescription;
+
+                        // include custom fields, project model could hold the full list of custom fields that we may not be interested in, 
+                        // so, filter out and send only those that's mentioned in the project template. If there are no custom fields mentioned in 
+                        // the project template then don't bother sending any.
+                        if (projectModel.CustomFields.Count > 0 && projectTemplateResponseModel.CustomFields != null && projectTemplateResponseModel.CustomFields.Count > 0)
+                        {
+                            foreach (KeyValuePair<string, string> customField in projectModel.CustomFields)
+                            {
+                                if (projectTemplateResponseModel.CustomFields.ContainsKey(customField.Key))
+                                {
+                                    requestModel.CustomFields.Add(customField.Key, customField.Value);
+                                }
+                            }
+                        }
+
+                        projectCreateResponseModel = await this.CreateProjectAsync(requestModel, cancellationToken);
+
+                        if (projectCreateResponseModel == null)
+                        {
+                            // project creation failed, return appropriate message
+                            this.LastErrorResponse.Messages.Add(new Inspire.Models.Common.ErrorModel
+                            {
+                                ErrorType = Core.Errors.ErrorType.Critical,
+                                Message = "Failed to create a Transport project with the provided information."
+                            });
+                        } 
+                        else
+                        {
+                            responseModel = new TransportSubmissionResponseModel();
+                            responseModel.ProjectId = projectCreateResponseModel.ProjectId;
+                            responseModel.TransportProjectNumber = projectCreateResponseModel.TransportProjectNumber;
+                            responseModel.SubmissionRequest = JsonConvert.SerializeObject(requestModel);
+                            responseModel.SubmissionResponse = JsonConvert.SerializeObject(projectCreateResponseModel);
+                        }
+                    }
+                }
+                else
+                {
+                    // couldn't retrieve the project template, return appropriate message
+                    this.LastErrorResponse.Messages.Add(new Inspire.Models.Common.ErrorModel
+                    {
+                        ErrorType = Core.Errors.ErrorType.Critical,
+                        Message = "Couldn't retrieve a valid project template from Transport."
+                    });
+                }
+            }
+            else
+            {
+                // authentication failed, return appropriate message
+                this.LastErrorResponse.Messages.Add(new Inspire.Models.Common.ErrorModel
+                {
+                    ErrorType = Core.Errors.ErrorType.Fatal,
+                    Message = "Failed to authenticate with Transport."
+                });
             }
 
-            // Once we've successfully authenticated call the Api endpoint to get project templates using the token response.
-            if (this.HasAuthenticated)
+            return responseModel;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Retrieves the project template from Transport.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns a <see cref="TransportProjectTemplateModel"/> model.</returns>
+        internal async Task<TransportProjectTemplateModel> RetrieveProjectTemplatesAsync(CancellationToken cancellationToken = default(CancellationToken))
+        {
+            TransportProjectTemplateModel response = null;
+
+            // Once we've successfully authenticated call the Api endpoint to get project templates.
+            if (EnsureAuthentication(cancellationToken).Result)
             {
-                // GET api/v2/projects/template
-                var request = this.CreateRequest($"/projects/template");
+                var request = CreateRequest($"/v2/projects/template");
                 
-                // TODO create response model
-                this.RequestContent<string>(request);
+                response = RequestContent<TransportProjectTemplateModel>(request);
             }
 
-            return true;
+            return response;
         }
 
-        public async Task<bool> CreateProjectAsync(TransportProjectRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
+        internal async Task<TransportProjectTemplateModel> CreateProjectAsync(TransportProjectRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            TransportProjectTemplateModel response = null;
+
+            // Once we've successfully authenticated call the Api endpoint to create the project.
+            if (EnsureAuthentication(cancellationToken).Result)
+            {
+                var request = CreateRequest($"/v2/projects/{requestModel.ProjectId}", HttpMethod.Post);
+
+                response = RequestContent<TransportProjectRequestModel, TransportProjectTemplateModel>(request, requestModel);
+            }
+
+            return response;
+        }
+
+        internal async Task<bool> UpdateProjectAsync(TransportProjectRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
         {
             // If we're not authenticated then call the Authenticate method
             if (!this.HasAuthenticated)
@@ -62,30 +205,10 @@ namespace Vasont.Inspire.TransportClient
             // Once we've successfully authenticated call the Api endpoint to get project templates using the token response.
             if (this.HasAuthenticated)
             {
-                var request = this.CreateRequest($"/projects/{requestModel.ProjectId}", HttpMethod.Post);
+                var request = this.CreateRequest($"/v2/projects/{requestModel.ProjectId}", HttpMethod.Put);
 
                 // TODO create response model
-                this.RequestContent<TransportProjectCreateModel, string>(request, requestModel.Model);
-            }
-
-            return true;
-        }
-
-        public async Task<bool> UpdateProjectAsync(TransportProjectRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            // If we're not authenticated then call the Authenticate method
-            if (!this.HasAuthenticated)
-            {
-                await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false);
-            }
-
-            // Once we've successfully authenticated call the Api endpoint to get project templates using the token response.
-            if (this.HasAuthenticated)
-            {
-                var request = this.CreateRequest($"/projects/{requestModel.ProjectId}", HttpMethod.Put);
-
-                // TODO create response model
-                this.RequestContent<TransportProjectCreateModel, string>(request, requestModel.Model);
+                this.RequestContent<TransportProjectRequestModel, string>(request, requestModel);
             }
 
             return true;
@@ -102,7 +225,7 @@ namespace Vasont.Inspire.TransportClient
             // Once we've successfully authenticated call the Api endpoint to get project templates using the token response.
             if (this.HasAuthenticated)
             {
-                var request = this.CreateRequest($"/projects/{projectTemplateId}", HttpMethod.Post);
+                var request = this.CreateRequest($"/v2/projects/{projectTemplateId}", HttpMethod.Post);
 
                 // TODO create response model
                 this.RequestContent<string>(request);
@@ -110,31 +233,183 @@ namespace Vasont.Inspire.TransportClient
             return true;
         }
 
-        public async Task<bool> UploadFilesAsync(TransportFileUploadRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
+        #region Attempt to upload file using WebRequest that didn't work
+
+        //public TransportFileUploadResponseModel UploadFiles(TransportFileUploadRequestModel requestModel) //, CancellationToken cancellationToken = default(CancellationToken))
+        //{
+        //    TransportFileUploadResponseModel response = null;
+        //    CancellationToken cancellationToken = default(CancellationToken);
+
+        //    if (EnsureAuthentication(cancellationToken).Result)
+        //    {
+        //        ASCIIEncoding ascii = new ASCIIEncoding();
+        //        string boundary = "----WebKitFormBoundary" + DateTime.Now.Ticks.ToString("x");
+
+        //        string uploaderName = "srcUploader";
+        //        //byte[] boundaryBytes = System.Text.Encoding.ASCII.GetBytes("\r\n--" + boundary + "\r\n");
+        //        string acceptType = "application/json";
+        //        string contentType = "pdf";
+        //        string fileUrl = requestModel.FilePath;
+
+        //        var request = this.CreateRequestMultipart($"/files/upload?filename={requestModel.FilePath}&targetFolderId={requestModel.TargetFolderId}&overwrite={requestModel.OverwriteFile}", HttpMethod.Post.Method, false, null, acceptType, boundary);
+
+        //        string boundaryStringLine = "\r\n--" + boundary + "\r\n";
+        //        byte[] boundaryStringLineBytes = System.Text.Encoding.Default.GetBytes(boundaryStringLine);
+
+        //        string lastBoundaryStringLine = "\r\n--" + boundary + "--\r\n";
+        //        byte[] lastBoundaryStringLineBytes = System.Text.Encoding.Default.GetBytes(lastBoundaryStringLine);
+
+        //        // Get the byte array of the myFileDescription content disposition
+        //        string myFileDescriptionContentDisposition = String.Format(
+        //            "Content-Disposition: form-data; name=\"{0}\"\r\n\r\n{1}",
+        //            Path.GetFileName(fileUrl),
+        //            "A sample file description");
+        //        byte[] myFileDescriptionContentDispositionBytes
+        //            = System.Text.Encoding.Default.GetBytes(myFileDescriptionContentDisposition);
+
+        //        switch (Path.GetExtension(fileUrl).Replace(".", ""))
+        //        {
+        //            case "pdf":
+        //                contentType = "pdf";
+        //                break;
+        //            case "doc":
+        //                contentType = "msword";
+        //                break;
+        //            case "docx":
+        //                contentType = "vnd.openxmlformats-officedocument.wordprocessingml.document";
+        //                break;
+        //            case "xls":
+        //                contentType = "vnd.ms-excel";
+        //                break;
+        //            case "xlsx":
+        //                contentType = "vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        //                break;
+        //            case "xml":
+        //                contentType = "xml";
+        //                break;
+        //        }
+
+        //        string myFileContentDisposition = String.Format(
+        //            "Content-Disposition: form-data; name=\"{0}\"; "
+        //             + "filename=\"{1}\"\r\nContent-Type: application/{2}\r\n\r\n",
+        //            uploaderName, Path.GetFileName(fileUrl), contentType);
+        //        byte[] myFileContentDispositionBytes =
+        //            System.Text.Encoding.Default.GetBytes(myFileContentDisposition);
+
+        //        //FileInfo fileInfo = new FileInfo(fileUrl);
+        //        var fileInfo = File.ReadAllBytes(requestModel.FilePath);
+
+        //        // Calculate the total size of the HTTP request
+        //        long totalRequestBodySize = boundaryStringLineBytes.Length * 2
+        //            + lastBoundaryStringLineBytes.Length
+        //            + myFileDescriptionContentDispositionBytes.Length
+        //            + myFileContentDispositionBytes.Length
+        //            + fileInfo.Length;
+        //        // And indicate the value as the HTTP request content length
+        //        request.ContentLength = totalRequestBodySize;
+
+        //        var requestStream = request.GetRequestStream();
+        //        {
+        //            // Send the file description content disposition over to the server
+        //            requestStream.Write(boundaryStringLineBytes, 0, boundaryStringLineBytes.Length);
+        //            requestStream.Write(myFileDescriptionContentDispositionBytes, 0,
+        //                myFileDescriptionContentDisposition.Length);
+
+        //            // Send the file content disposition over to the server
+        //            requestStream.Write(boundaryStringLineBytes, 0, boundaryStringLineBytes.Length);
+        //            requestStream.Write(myFileContentDispositionBytes, 0,
+        //                myFileContentDispositionBytes.Length);
+
+        //            byte[] buffer = new byte[1024];
+        //            int bytesRead = 0;
+
+        //            if (requestModel.FileStream == null)
+        //            {
+        //                // upload from the file path
+        //                using (FileStream fileStream = File.OpenRead(requestModel.FilePath))
+        //                {
+        //                    while ((bytesRead = fileStream.Read(buffer, 0, buffer.Length)) != 0)
+        //                    {
+        //                        requestStream.Write(buffer, 0, bytesRead);
+        //                    }
+        //                    fileStream.Flush();
+        //                    fileStream.Close();
+        //                }
+        //            }
+        //            else
+        //            {
+        //                // upload from the given file stream
+        //                while ((bytesRead = requestModel.FileStream.Read(buffer, 0, buffer.Length)) != 0)
+        //                {
+        //                    requestStream.Write(buffer, 0, bytesRead);
+        //                }
+        //            }
+
+        //            //var streamWriter = new StreamWriter(requestStream);
+        //            //streamWriter.Write(binary);
+        //            //streamWriter.Flush();
+
+        //            // Send the last part of the HTTP request body
+        //            requestStream.Write(lastBoundaryStringLineBytes, 0, lastBoundaryStringLineBytes.Length);
+        //            requestStream.Flush();
+        //        }
+
+        //        response = this.RequestContent<TransportFileUploadResponseModel>(request);
+        //    }
+        //    return response;
+        //}
+
+        #endregion
+
+        internal async Task<TransportFileUploadResponseModel> UploadFilesAsync(TransportFileUploadRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
         {
-            // Post /files/upload
+            List<TransportFileUploadResponseModel> responseList = null;
 
-            // If we're not authenticated then call the Authenticate method
-            if (!this.HasAuthenticated)
+            if (EnsureAuthentication(cancellationToken).Result)
             {
-                await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false);
-            }
+                HttpClient client = new HttpClient();
+                MultipartFormDataContent form = new MultipartFormDataContent();
+                byte[] fileContent = null;
+                string fileName = Path.GetFileName(requestModel.FilePath);
 
-            // Once we've successfully authenticated call the Api endpoint to get project templates using the token response.
-            if (this.HasAuthenticated)
-            {
-                var request = this.CreateRequest($"/files/upload?filename={requestModel.FilePath}&targetFolderId={requestModel.TargetFolderId}&saveToProject={requestModel.SaveToProject}", HttpMethod.Post);
-
-                // write data out to the request stream
-                using (var postStream = request.GetRequestStream())
+                if (requestModel.FileStream == null || requestModel.FileStream.Length <= 0)
                 {
-                    postStream.WriteMultiPartFormData(requestModel);
+                    // file stream was not provided, read from the file
+                    fileContent = await File.ReadAllBytesAsync(requestModel.FilePath, cancellationToken);
+                }
+                else
+                {
+                    // a file stream was provided, use the stream instead
+                    fileContent = requestModel.FileStream;
                 }
 
-                // TODO create response model
-                this.RequestContent<string>(request);
+                var httpContent = new ByteArrayContent(fileContent);
+                httpContent.Headers.ContentType = MediaTypeHeaderValue.Parse("multipart/form-data");
+
+                if (!string.IsNullOrEmpty(requestModel.FilePath))
+                {
+                    form.Add(httpContent, "file", Path.GetFileName(requestModel.FilePath));
+                }
+
+                try
+                {
+                    string fileUploadUrl = $"{this.Configuration.ResourceUri}{this.Configuration.RoutePrefix}/files/upload?filename={fileName}&targetFolderId={requestModel.TargetFolderId}&overwrite={requestModel.OverwriteFile}";
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + this.AccessToken);
+                    var httpResponse = await client.PostAsync(fileUploadUrl, form, cancellationToken);
+                    httpResponse.EnsureSuccessStatusCode();
+                    var responseContent = httpResponse.Content.ReadAsStringAsync();
+                    responseList = JsonConvert.DeserializeObject<List<TransportFileUploadResponseModel>>(responseContent.Result);
+                }
+                catch (Exception ex)
+                {
+                    this.LastErrorResponse.Messages.Add(new Inspire.Models.Common.ErrorModel
+                    {
+                        ErrorType = Core.Errors.ErrorType.Critical,
+                        Message = $"Failed to upload file to a Transport project. Message: {ex.Message}"
+                    });
+                }
             }
-            return true;
+            return responseList != null && responseList.Count > 0 ? responseList[0] : null;
         }
     }
 }

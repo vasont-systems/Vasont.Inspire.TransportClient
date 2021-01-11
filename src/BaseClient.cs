@@ -5,6 +5,8 @@
 //-------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient
 {
+    using IdentityModel.Client;
+    using Newtonsoft.Json;
     using System;
     using System.IO;
     using System.Net;
@@ -14,10 +16,9 @@ namespace Vasont.Inspire.TransportClient
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using IdentityModel.Client;
-    using Newtonsoft.Json;
     using Vasont.Inspire.Core.Errors;
     using Vasont.Inspire.Models.Common;
+    using Vasont.Inspire.TransportClient.Models;
     using Vasont.Inspire.TransportClient.Properties;
     using Vasont.Inspire.TransportClient.Settings;
 
@@ -46,6 +47,7 @@ namespace Vasont.Inspire.TransportClient
         /// Contains a discovery result from the authority.
         /// </summary>
         private DiscoveryDocumentResponse discovery;
+
         #endregion Private Fields
 
         #region Constructors
@@ -54,9 +56,23 @@ namespace Vasont.Inspire.TransportClient
         /// Initializes a new instance of the <see cref="BaseClient"/> class.
         /// </summary>
         /// <param name="configuration">The configuration.</param>
-        public BaseClient(TransportConfigurationModel configuration)
+        public BaseClient(TransportAuthenticationModel authenticationModel)
         {
-            this.Configuration = configuration;
+            this.Configuration = new TransportConfigurationModel
+            {
+                ResourceUri = new Uri(authenticationModel.RESTUrl),
+                AuthorityUri = new Uri(authenticationModel.AuthorityUri),
+                UserName = authenticationModel.Username,
+                Password = authenticationModel.Password,
+                ClientId = authenticationModel.ClientId,
+                ClientSecret = authenticationModel.ClientSecret,
+                GrantType = authenticationModel.GrantType,
+                TargetResourceScopes = authenticationModel.ClientScopes != null ? authenticationModel.ClientScopes.Split(",") : new string[] { "" },
+                UserAgent = "GlobalLink Vasont Inspire Transport Api Client",
+                AuthenticationMethod = ClientAuthenticationMethods.ResourceOwnerPassword,
+                RoutePrefix = authenticationModel.RoutePrefix,
+                IncludeBasicAuthenticationHeader = true
+            };
         }
 
         #endregion Constructors
@@ -192,6 +208,22 @@ namespace Vasont.Inspire.TransportClient
         }
 
         /// <summary>
+        /// This method is used to ensure the client is authenticated and we have an access token.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns the status of authentication.</returns>
+        public async Task<bool> EnsureAuthentication(CancellationToken cancellationToken)
+        {
+            // If we're not authenticated then call the Authenticate method
+            if (!this.HasAuthenticated)
+            {
+                await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false);
+            }
+
+            return this.HasAuthenticated;
+        }
+
+        /// <summary>
         /// This method is used to easily create a new WebRequest object for the Web API.
         /// </summary>
         /// <param name="relativeUri">Contains the relative Uri path of the web request to make against the Web API.</param>
@@ -230,7 +262,6 @@ namespace Vasont.Inspire.TransportClient
         /// </returns>
         public HttpWebRequest CreateRequest(string relativeUri, string method, bool noCache = true, ICredentials credentials = null, string contentType = "application/json")
         {
-            // request /Token, on success, return and store token.
             var request = WebRequest.CreateHttp(new Uri($"{this.Configuration.ResourceUri}{this.Configuration.RoutePrefix}{relativeUri}"));
             request.Method = method;
 
@@ -244,6 +275,58 @@ namespace Vasont.Inspire.TransportClient
             request.UserAgent = this.Configuration.UserAgent;
             request.Accept = "application/json";
             request.ContentType = contentType;
+
+            // Set a cache policy level for the "http:" and "https" schemes.
+            if (noCache)
+            {
+                request.CachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore);
+            }
+
+            if (this.HasAuthenticated)
+            {
+                request.Headers.Add("Authorization", "Bearer " + this.AccessToken);
+            }
+
+            return request;
+        }
+
+        /// <summary>
+        /// This method is used to easily create a new WebRequest object for the Web API.
+        /// </summary>
+        /// <param name="relativeUri">Contains the relative Uri path of the web request to make against the Web API.</param>
+        /// <param name="method">Contains the request method as a string value.</param>
+        /// <param name="noCache">Contains a value indicating whether the URL shall contain a parameter preventing the server from returning cached content.</param>
+        /// <param name="credentials">Contains optional credentials</param>
+        /// <param name="contentType">Contains optional content type.</param>
+        /// <returns>
+        /// Returns a new HttpWebRequest object to execute.
+        /// </returns>
+        public HttpWebRequest CreateRequestMultipart(string relativeUri, string method, bool noCache = true, ICredentials credentials = null, string acceptType = "application/json", string boundaryValue = "")
+        {
+            string boundary = string.Empty;
+            var request = WebRequest.CreateHttp(new Uri($"{this.Configuration.ResourceUri}{this.Configuration.RoutePrefix}{relativeUri}"));
+            request.Method = method;
+            //request.AllowWriteStreamBuffering = false;
+
+            if (credentials == null)
+            {
+                credentials = CredentialCache.DefaultCredentials;
+                request.UseDefaultCredentials = true;
+            }
+
+            request.Credentials = credentials;
+            request.UserAgent = this.Configuration.UserAgent;
+            request.KeepAlive = true;
+            request.Accept = acceptType;
+            if (string.IsNullOrEmpty(boundaryValue))
+            {
+                boundary = "----WebKitFormBoundary" + DateTime.Now.Ticks.ToString("x");
+            }
+            else
+            {
+                boundary = boundaryValue;
+            }
+            request.ContentType = "multipart/form-data; boundary=" + boundary;
 
             // Set a cache policy level for the "http:" and "https" schemes.
             if (noCache)

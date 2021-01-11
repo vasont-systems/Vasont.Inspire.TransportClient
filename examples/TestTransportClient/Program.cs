@@ -5,12 +5,12 @@
 //-------------------------------------------------------------
 namespace TestTransportClient
 {
-    using Newtonsoft.Json;
     using System;
+    using System.Collections.Generic;
     using Vasont.Inspire.Core.Extensions;
     using Vasont.Inspire.Core.Utility;
     using Vasont.Inspire.TransportClient;
-    using Vasont.Inspire.TransportClient.Settings;
+    using Vasont.Inspire.TransportClient.Models;
 
     /// <summary>
     /// This is the main entry point of the Test Project Director Client Console Application.
@@ -33,62 +33,53 @@ namespace TestTransportClient
 
             string grantType = CommandLine.Parameters.ContainsKey("grantType") ? CommandLine.Parameters["grantType"].ConvertToString() : string.Empty;
             string clientScopes = CommandLine.Parameters.ContainsKey("clientScopes") ? CommandLine.Parameters["clientScopes"].ConvertToString() : string.Empty;
-            string userAgent = "GlobalLink Vasont Inspire Transport Api Client";
 
             Console.WriteLine("GlobalLink Vasont Inspire Transport Api Client Test.");
 
             try
             {
-                TransportConfigurationModel authenticationSettings = new TransportConfigurationModel
+                TransportAuthenticationModel authenticationSettings = new TransportAuthenticationModel
                 {
-                    ResourceUri = new Uri(resourceUri),
-                    AuthorityUri = new Uri(authorityUri),
-                    UserName = userName,
-                    Password = password,
+                    AuthorityUri = authorityUri,
                     ClientId = clientId,
+                    ClientScopes = clientScopes,
                     ClientSecret = clientSecret,
                     GrantType = grantType,
-                    TargetResourceScopes = clientScopes.Split(","),
-                    UserAgent = userAgent,
-                    AuthenticationMethod = ClientAuthenticationMethods.ResourceOwnerPassword,
-                    RoutePrefix = "/api/v2",
-                    IncludeBasicAuthenticationHeader = true
+                    Password = password,
+                    RESTUrl = resourceUri,
+                    RoutePrefix = "/api",
+                    Username = userName
                 };
 
                 using (var transportClient = new TransportClient(authenticationSettings))
                 {
-                    if (AsyncHelper.RunSync(() => transportClient.AuthenticateAsync()))
+                    Console.WriteLine("Authentication successful. Creating a Transport project...");
+
+                    TransportSubmissionProjectModel projectModel = new TransportSubmissionProjectModel();
+                    projectModel.ProjectName = "Test Project from the Transport Test Client - 01-07-21-2";
+                    projectModel.ProjectDescription = "This test project was created using the Transport Test Client - 3-3";
+                    projectModel.SourceLanguage = "en";
+                    projectModel.TargetLanguages = new List<string> { "fr" };
+
+                    // compose the files that are needed to be uploaded to Transport
+                    projectModel.FilesToUpload.Add(new TransportSubmissionProjectFileModel
                     {
-                        // Authentication successful
-                        Console.WriteLine($"Successfully Authenticated. Messages:{Environment.NewLine}");
+                        FilePath = "InspireTransportWorkflow_draft.docx"
+                    });
 
-                        // Get a list of Available project templates from transport
-                        //var projects = AsyncHelper.RunSync(() => transportClient.RetrieveProjectTempaltesAsync());
+                    projectModel.CustomFields.Add("sampleDropdown", "Dropdown-Value-1");
+                    projectModel.CustomFields.Add("sampleText", "Text-Value-1");
+                    projectModel.CustomFields.Add("sampleCheckbox", "Checkbox-Value-1");
 
-                        //if (projects != null)
-                        //{
-                        //    Console.WriteLine($"Found {projects.Count} Projects for this user");
+                    TransportSubmissionResponseModel transportResponseModel = transportClient.SubmitProjectAsync(projectModel).Result;
 
-                        //    projects.ForEach(project =>
-                        //    {
-                        //    // Output the project details
-                        //    Console.WriteLine(JsonConvert.SerializeObject(project));
-                        //    });
-                        //}
-                        //else
-                        //{
-                        //    Console.WriteLine("Failed to retrieve Projects for this user");
-                        //}
+                    if (transportResponseModel != null)
+                    {
+                        Console.WriteLine($"Transport project created! Transport Project# {transportResponseModel.TransportProjectNumber}");
                     }
                     else
                     {
-                        // Could not Authenticate
-                        Console.WriteLine($"Could not Authenticate. Messages:{Environment.NewLine}");
-
-                        transportClient.LastErrorResponse.Messages.ForEach(error =>
-                        {
-                            Console.WriteLine($"{error.Message} {Environment.NewLine}");
-                        });
+                        Console.WriteLine($"Error creating Transport project.");
                     }
                 }
             }
@@ -98,7 +89,7 @@ namespace TestTransportClient
             }
 
             // wait
-            Console.WriteLine("Press any key to close the console.");
+            Console.WriteLine("Press any key to close this console window.");
             Console.ReadKey();
         }
     }
