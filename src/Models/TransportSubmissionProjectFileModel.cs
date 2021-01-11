@@ -11,8 +11,14 @@ namespace Vasont.Inspire.TransportClient.Models
     /// </summary>
     public class TransportSubmissionProjectFileModel
     {
+        /// <summary>
+        /// Gets or sets the full file path inforamtion for uploading files to Transport.
+        /// </summary>
         public string FilePath { get; set; }
 
+        /// <summary>
+        /// Gets or sets the full file stream for uploading files to Transport.
+        /// </summary>
         public byte[] FileStream { get; set; }
     }
 }
