@@ -306,7 +306,6 @@ namespace Vasont.Inspire.TransportClient
             string boundary = string.Empty;
             var request = WebRequest.CreateHttp(new Uri($"{this.Configuration.ResourceUri}{this.Configuration.RoutePrefix}{relativeUri}"));
             request.Method = method;
-            //request.AllowWriteStreamBuffering = false;
 
             if (credentials == null)
             {

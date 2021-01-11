@@ -14,12 +14,24 @@ namespace Vasont.Inspire.TransportClient.Models
         {
         }
 
+        /// <summary>
+        /// Gets or sets the project identifier inforamtion from Transport.
+        /// </summary>
         public string ProjectId { get; set; }
 
+        /// <summary>
+        /// Gets or sets the Tranport project identifier inforamtion from Transport.
+        /// </summary>
         public string TransportProjectNumber { get; set; }
 
+        /// <summary>
+        /// Gets or sets the submission request payload that was sent to Transport.
+        /// </summary>
         public string SubmissionRequest { get; set; }
 
+        /// <summary>
+        /// Gets or sets the submission response received from Transport.
+        /// </summary>
         public string SubmissionResponse { get; set; }
     }
 }

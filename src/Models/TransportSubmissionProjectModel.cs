@@ -21,18 +21,39 @@ namespace Vasont.Inspire.TransportClient.Models
             this.FilesToUpload = new List<TransportSubmissionProjectFileModel>();
         }
 
+        /// <summary>
+        /// Gets or sets the project identifier inforamtion for Transport.
+        /// </summary>
         public string ProjectId { get; set; }
 
+        /// <summary>
+        /// Gets or sets the project name for Transport.
+        /// </summary>
         public string ProjectName { get; set; }
 
+        /// <summary>
+        /// Gets or sets the source language for Transport.
+        /// </summary>
         public string SourceLanguage { get; set; }
 
+        /// <summary>
+        /// Gets or sets a list of target languages for Transport.
+        /// </summary>
         public List<string> TargetLanguages { get; set; }
 
+        /// <summary>
+        /// Gets or sets the project description for Transport.
+        /// </summary>
         public string ProjectDescription { get; set; }
 
+        /// <summary>
+        /// Gets or sets a list of custom fields for Transport.
+        /// </summary>
         public Dictionary<string, string> CustomFields { get; set; }
 
+        /// <summary>
+        /// Gets or sets a list of file to upload to Transport.
+        /// </summary>
         public List<TransportSubmissionProjectFileModel> FilesToUpload { get; set; }
     }
 }
