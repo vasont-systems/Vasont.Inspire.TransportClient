@@ -5,7 +5,6 @@
 //-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient.Models
 {
-    using Newtonsoft.Json;
     using System.Collections.Generic;
 
     /// <summary>
@@ -14,6 +13,9 @@ namespace Vasont.Inspire.TransportClient.Models
     /// </summary>
     public class TransportSubmissionProjectModel
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TransportSubmissionProjectModel" /> class.
+        /// </summary>
         public TransportSubmissionProjectModel()
         {
             this.TargetLanguages = new List<string>();

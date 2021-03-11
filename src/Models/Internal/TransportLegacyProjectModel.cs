@@ -5,13 +5,13 @@
 //-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient.Models.Internal
 {
-    using Newtonsoft.Json;
     using System.Collections.Generic;
+    using Newtonsoft.Json;
 
     /// <summary>
     /// This class represents the <see cref="TransportLegacyProjectModel"/> that's received after requesting project info from Transport.
     /// </summary>
-    public class TransportLegacyProjectModel
+    internal class TransportLegacyProjectModel
     {
         /// <summary>
         /// Gets or sets the list of folders from Transport project.

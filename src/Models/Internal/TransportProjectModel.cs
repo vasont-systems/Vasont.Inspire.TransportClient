@@ -1,9 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
+﻿//-----------------------------------------------------------------------
+// <copyright file="TransportProjectModel.cs" company="GlobalLink Vasont">
+// Copyright (c) GlobalLink Vasont. All rights reserved.
+// </copyright>
+//-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient.Models.Internal
 {
+    using System;
+    using System.Collections.Generic;
+
+    /// <summary>
+    /// This class represents the <see cref="TransportProjectModel"/> that represents a Transport project.
+    /// </summary>
     internal class TransportProjectModel
     {
         /// <summary>

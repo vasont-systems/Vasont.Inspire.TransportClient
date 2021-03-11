@@ -5,7 +5,6 @@
 //-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient.Models
 {
-    using Newtonsoft.Json;
     using System;
     using System.IO;
 

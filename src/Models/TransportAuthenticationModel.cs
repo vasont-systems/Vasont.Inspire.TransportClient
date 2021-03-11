@@ -11,6 +11,9 @@ namespace Vasont.Inspire.TransportClient.Models
     /// </summary>
     public class TransportAuthenticationModel
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TransportAuthenticationModel" /> class.
+        /// </summary>
         public TransportAuthenticationModel()
         {
         }

@@ -10,7 +10,7 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
     /// <summary>
     /// This class represents the <see cref="TransportFileUploadRequestModel"/> that's used when submitting request to upload files to Transport.
     /// </summary>
-    class TransportFileUploadRequestModel
+    internal class TransportFileUploadRequestModel
     {
         /// <summary>
         /// Gets or sets the file stream that's used to upload a file to Transport.

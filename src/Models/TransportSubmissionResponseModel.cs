@@ -10,6 +10,9 @@ namespace Vasont.Inspire.TransportClient.Models
     /// </summary>
     public class TransportSubmissionResponseModel
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TransportSubmissionResponseModel" /> class.
+        /// </summary>
         internal TransportSubmissionResponseModel()
         {
         }

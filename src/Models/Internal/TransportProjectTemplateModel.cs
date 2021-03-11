@@ -14,6 +14,9 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
     /// </summary>
     internal class TransportProjectTemplateModel
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TransportProjectTemplateModel" /> class.
+        /// </summary>
         internal TransportProjectTemplateModel()
         {
             this.TargetLanguages = new List<string>();

@@ -5,12 +5,18 @@
 //-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient.Models.Internal
 {
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
+    using Newtonsoft.Json;
 
+    /// <summary>
+    /// This class represents the <see cref="TransportProjectRequestModel"/> that carries the request info for creating a Transport project.
+    /// </summary>
     internal class TransportProjectRequestModel
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TransportProjectRequestModel" /> class.
+        /// </summary>
         public TransportProjectRequestModel()
         {
             this.TargetLanguages = new List<string>();

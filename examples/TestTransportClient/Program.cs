@@ -7,6 +7,7 @@ namespace TestTransportClient
 {
     using System;
     using System.Collections.Generic;
+    using System.Threading.Tasks;
     using Vasont.Inspire.Core.Extensions;
     using Vasont.Inspire.Core.Utility;
     using Vasont.Inspire.TransportClient;
@@ -21,7 +22,7 @@ namespace TestTransportClient
         /// Defines the entry point of the application.
         /// </summary>
         /// <param name="args">The arguments.</param>
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             string resourceUri = CommandLine.Parameters.ContainsKey("resourceUrl") ? CommandLine.Parameters["resourceUrl"].ConvertToString() : string.Empty;
             string authorityUri = CommandLine.Parameters.ContainsKey("authorityUri") ? CommandLine.Parameters["authorityUri"].ConvertToString() : string.Empty;
@@ -33,6 +34,9 @@ namespace TestTransportClient
 
             string grantType = CommandLine.Parameters.ContainsKey("grantType") ? CommandLine.Parameters["grantType"].ConvertToString() : string.Empty;
             string clientScopes = CommandLine.Parameters.ContainsKey("clientScopes") ? CommandLine.Parameters["clientScopes"].ConvertToString() : string.Empty;
+
+            string projectId = CommandLine.Parameters.ContainsKey("projectId") ? CommandLine.Parameters["projectId"].ConvertToString() : string.Empty;
+            string runScope = CommandLine.Parameters.ContainsKey("runScope") ? CommandLine.Parameters["runScope"].ConvertToString() : "CreateProject";  // valid values can be "CreateProject", "FetchAndDownloadCompletedFiles"
 
             Console.WriteLine("GlobalLink Vasont Inspire Transport Api Client Test.");
 
@@ -53,76 +57,84 @@ namespace TestTransportClient
 
                 using (var transportClient = new TransportClient(authenticationSettings))
                 {
-                    // Sample code to test completed files for a project and download them
-                    Console.WriteLine("Getting Transport project info...");
-                    string projectId = "4a4d5bab-f0fb-425f-a849-060c90460321";
-                    List<TransportLegacyFileModel> completedFiles = transportClient.GetCompletedFilesAsync(new Guid(projectId)).Result;
-
-                    if (completedFiles != null)
+                    switch (runScope)
                     {
-                        Console.WriteLine($"Transport completed files count = {completedFiles.Count}");
+                        case "CreateProject":
+                            // Sample code to test creating projects and uploading files to a project
+                            Console.WriteLine("Authentication successful. Creating a Transport project...");
 
-                        Console.WriteLine("Downloading project files...");
-                        completedFiles.ForEach(async file =>
-                        {
-                            try
+                            TransportSubmissionProjectModel projectModel = new TransportSubmissionProjectModel();
+                            projectModel.ProjectName = "Test Project from the Transport Test Client - 01-07-21-2";
+                            projectModel.ProjectDescription = "This test project was created using the Transport Test Client - 3-3";
+                            projectModel.SourceLanguage = "en";
+                            projectModel.TargetLanguages = new List<string> { "fr" };
+
+                            // compose the files that are needed to be uploaded to Transport
+                            projectModel.FilesToUpload.Add(new TransportSubmissionProjectFileModel
                             {
-                                string filename = $"{file.FileName}.{file.FileType}";
-                                TransportFileDownloadRequestModel fileDownloadRequestModel = new TransportFileDownloadRequestModel();
-                                fileDownloadRequestModel.FileId = new Guid(file.FileId);
-                                fileDownloadRequestModel.FileName = filename;
+                                FilePath = "InspireTransportWorkflow_draft.docx"
+                            });
 
-                                Console.WriteLine($"Downloading project file {filename}...");
+                            projectModel.CustomFields.Add("SampleDropdown", "Dropdown-Value-1");
+                            projectModel.CustomFields.Add("SampleText", "Text-Value-1");
+                            projectModel.CustomFields.Add("SampleCheckbox", "Checkbox-Value-1");
+                            projectModel.CustomFields.Add("TenantKey", "localhost");
 
-                                TransportFileDownloadResponseModel fileDownloadResponseModel = await transportClient.DownloadFileAsync(fileDownloadRequestModel);
+                            TransportSubmissionResponseModel transportResponseModel = await transportClient.SubmitProjectAsync(projectModel);
 
-                                if (fileDownloadResponseModel != null)
+                            if (transportResponseModel != null)
+                            {
+                                Console.WriteLine($"Transport project created! Transport Project# {transportResponseModel.TransportProjectNumber}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Error creating Transport project.");
+                            }
+
+                            break;
+                        case "FetchAndDownloadCompletedFiles":
+                            // Sample code to test completed files for a project and download them
+                            Console.WriteLine("Getting Transport project info...");
+
+                            List<TransportLegacyFileModel> completedFiles = await transportClient.GetCompletedFilesAsync(new Guid(projectId));
+
+                            if (completedFiles != null)
+                            {
+                                Console.WriteLine($"Transport completed files count = {completedFiles.Count}");
+
+                                Console.WriteLine("Downloading project files...");
+                                completedFiles.ForEach(async file =>
                                 {
-                                    // add to the import request model
-                                    Console.WriteLine($"Downloaded {fileDownloadResponseModel.FileName}. File stream length = {fileDownloadResponseModel.FileStreamLength}");
-                                }
+                                    try
+                                    {
+                                        string filename = $"{file.FileName}.{file.FileType}";
+                                        TransportFileDownloadRequestModel fileDownloadRequestModel = new TransportFileDownloadRequestModel();
+                                        fileDownloadRequestModel.FileId = new Guid(file.FileId);
+                                        fileDownloadRequestModel.FileName = filename;
+
+                                        Console.WriteLine($"Downloading project file {filename}...");
+
+                                        TransportFileDownloadResponseModel fileDownloadResponseModel = await transportClient.DownloadFileAsync(fileDownloadRequestModel);
+
+                                        if (fileDownloadResponseModel != null)
+                                        {
+                                            // add to the import request model
+                                            Console.WriteLine($"Downloaded {fileDownloadResponseModel.FileName}. File stream length = {fileDownloadResponseModel.FileStreamLength}");
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"Error downloading file. Exception: {ex.Message}");
+                                    }
+                                });
                             }
-                            catch (Exception ex)
+                            else
                             {
-                                Console.WriteLine($"Error downloading file. Exception: {ex.Message}");
+                                Console.WriteLine($"Error fetching completed files.");
                             }
-                        });
+
+                            break;
                     }
-                    else
-                    {
-                        Console.WriteLine($"Error fetching completed files.");
-                    }
-
-                    // Sample code to test creating projects and uploading files to a project
-                    //Console.WriteLine("Authentication successful. Creating a Transport project...");
-
-                    //TransportSubmissionProjectModel projectModel = new TransportSubmissionProjectModel();
-                    //projectModel.ProjectName = "Test Project from the Transport Test Client - 01-07-21-2";
-                    //projectModel.ProjectDescription = "This test project was created using the Transport Test Client - 3-3";
-                    //projectModel.SourceLanguage = "en";
-                    //projectModel.TargetLanguages = new List<string> { "fr" };
-
-                    //// compose the files that are needed to be uploaded to Transport
-                    //projectModel.FilesToUpload.Add(new TransportSubmissionProjectFileModel
-                    //{
-                    //    FilePath = "InspireTransportWorkflow_draft.docx"
-                    //});
-
-                    //projectModel.CustomFields.Add("SampleDropdown", "Dropdown-Value-1");
-                    //projectModel.CustomFields.Add("SampleText", "Text-Value-1");
-                    //projectModel.CustomFields.Add("SampleCheckbox", "Checkbox-Value-1");
-                    //projectModel.CustomFields.Add("TenantKey", "localhost");
-
-                    //TransportSubmissionResponseModel transportResponseModel = transportClient.SubmitProjectAsync(projectModel).Result;
-
-                    //if (transportResponseModel != null)
-                    //{
-                    //    Console.WriteLine($"Transport project created! Transport Project# {transportResponseModel.TransportProjectNumber}");
-                    //}
-                    //else
-                    //{
-                    //    Console.WriteLine($"Error creating Transport project.");
-                    //}
                 }
             }
             catch (Exception ex)
