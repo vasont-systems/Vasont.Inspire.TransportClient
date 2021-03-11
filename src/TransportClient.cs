@@ -70,7 +70,7 @@ namespace Vasont.Inspire.TransportClient
                             if (fileUploadResponseModel != null && fileUploadResponseModel.Error == null)
                             {
                                 requestModel.Files.Add(
-                                    new TransportProjectFilesModel
+                                    new TransportProjectFileModel
                                     {
                                         FileId = fileUploadResponseModel.FileId,
                                         Operation = 2,
@@ -157,6 +157,92 @@ namespace Vasont.Inspire.TransportClient
             return responseModel;
         }
 
+        /// <summary>
+        /// This method will retrieve a list of completed files for a Transport project.
+        /// </summary>
+        /// <param name="projectId">The project identifier.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns a list of <see cref="TransportLegacyFileModel"/> model.</returns>
+        public async Task<List<TransportLegacyFileModel>> GetCompletedFilesAsync(Guid projectId, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            List<TransportLegacyFileModel> fileModel = null;
+            TransportLegacyProjectModel projectModel = null;
+            List<TransportLegacyFolderModel> folderModel = null;
+
+            // Authenticate to make sure we can communicate with Transport
+            if (EnsureAuthentication(cancellationToken).Result)
+            {
+                var request = CreateRequest($"/projects/{projectId}", HttpMethod.Get);
+
+                projectModel = RequestContent<TransportLegacyProjectModel>(request);
+
+                if (projectModel != null && projectModel.FolderDetails != null && projectModel.FolderDetails.Count > 0)
+                {
+                    folderModel = projectModel.FolderDetails;
+                    List<TransportLegacyFolderModel> completedFilesFolder = folderModel.FindAll(f => f.Action == "Completed Files");
+
+                    if (completedFilesFolder != null && completedFilesFolder.Count > 0)
+                    {
+                        if (completedFilesFolder[0].ProjectFiles != null && completedFilesFolder[0].ProjectFiles.Count > 0)
+                        {
+                            fileModel = new List<TransportLegacyFileModel>();
+
+                            completedFilesFolder[0].ProjectFiles.ForEach(f =>
+                            {
+                                fileModel.Add(new TransportLegacyFileModel
+                                {
+                                    FileId = f.FileId,
+                                    FileName = f.FileName,
+                                    FileType = f.FileType,
+                                    IsDeleted = f.IsDeleted
+                                });
+                            });
+                        }
+                    }
+                }
+            }
+
+            return fileModel;
+        }
+
+        public async Task<TransportFileDownloadResponseModel> DownloadFileAsync(TransportFileDownloadRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            TransportFileDownloadResponseModel responseModel = null;
+
+            if (requestModel != null)
+            {
+                if (EnsureAuthentication(cancellationToken).Result)
+                {
+                    HttpClient client = new HttpClient();
+
+                    var fileInfo = new FileInfo($"{requestModel.FileName}");
+
+                    try
+                    {
+                        string fileDownloadUrl = $"{this.Configuration.ResourceUri}{this.Configuration.RoutePrefix}/Download/files?portalEntryIds={requestModel.FileId.ToString()}";
+                        client.DefaultRequestHeaders.Add("Authorization", "Bearer " + this.AccessToken);
+                        var httpResponse = await client.GetAsync(fileDownloadUrl, cancellationToken);
+                        httpResponse.EnsureSuccessStatusCode();
+                        responseModel = new TransportFileDownloadResponseModel();
+                        responseModel.FileStream = await httpResponse.Content.ReadAsStreamAsync();
+                        responseModel.FileId = requestModel.FileId;
+                        responseModel.FileName = requestModel.FileName;
+                        responseModel.FileStreamLength = responseModel.FileStream.Length;
+                    }
+                    catch (Exception ex)
+                    {
+                        this.LastErrorResponse.Messages.Add(new Inspire.Models.Common.ErrorModel
+                        {
+                            ErrorType = Core.Errors.ErrorType.Critical,
+                            Message = $"Failed to download file from Transport. Message: {ex.Message}"
+                        });
+                    }
+                }
+            }
+
+            return responseModel;
+        }
+
         #endregion
 
         /// <summary>
@@ -211,25 +297,6 @@ namespace Vasont.Inspire.TransportClient
                 this.RequestContent<TransportProjectRequestModel, string>(request, requestModel);
             }
 
-            return true;
-        }
-
-        public async Task<bool> FindProjectAsync(Guid projectTemplateId, CancellationToken cancellationToken = default(CancellationToken))
-        {            
-            // If we're not authenticated then call the Authenticate method
-            if (!this.HasAuthenticated)
-            {
-                await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false);
-            }
-
-            // Once we've successfully authenticated call the Api endpoint to get project templates using the token response.
-            if (this.HasAuthenticated)
-            {
-                var request = this.CreateRequest($"/v2/projects/{projectTemplateId}", HttpMethod.Post);
-
-                // TODO create response model
-                this.RequestContent<string>(request);
-            }
             return true;
         }
 

@@ -16,7 +16,7 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
             this.TargetLanguages = new List<string>();
             this.DeadlineTypes = new List<string>();
             this.CustomFields = new Dictionary<string, string>();
-            this.Files = new List<TransportProjectFilesModel>();
+            this.Files = new List<TransportProjectFileModel>();
         }
 
         /// <summary>
@@ -76,6 +76,6 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
         /// Gets or sets a list of project files for the project that should be created on Transport.
         /// </summary>
         [JsonProperty("fileChanges")]
-        internal List<TransportProjectFilesModel> Files { get; set; }
+        internal List<TransportProjectFileModel> Files { get; set; }
     }
 }

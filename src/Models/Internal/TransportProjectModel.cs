@@ -9,7 +9,7 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
         /// <summary>
         /// Gets or sets the folders that are created as part of the project template from Transport.
         /// </summary>
-        internal TransportProjectFoldersModel Folders { get; set; }
+        internal TransportProjectFolderModel Folders { get; set; }
 
         /// <summary>
         /// Gets or sets the status of the project that's created as part of the project template from Transport.
@@ -79,7 +79,7 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
         /// <summary>
         /// Gets or sets a list of custom fields from the project template from Transport.
         /// </summary>
-        internal List<TransportProjectCustomFieldsModel> CustomFields { get; set; }
+        internal List<TransportProjectCustomFieldModel> CustomFields { get; set; }
 
         /// <summary>
         /// Gets or sets the project number from the project template from Transport.

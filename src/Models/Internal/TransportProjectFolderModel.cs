@@ -1,5 +1,5 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright file="TransportProjectFoldersModel.cs" company="GlobalLink Vasont">
+// <copyright file="TransportProjectFolderModel.cs" company="GlobalLink Vasont">
 // Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
 //-----------------------------------------------------------------------
@@ -8,9 +8,9 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
     using Newtonsoft.Json;
 
     /// <summary>
-    /// This class represents the <see cref="TransportProjectFoldersModel"/> that's referenced in the <see cref="TransportProjectTemplateModel"/>.
+    /// This class represents the <see cref="TransportProjectFolderModel"/> that's referenced in the <see cref="TransportProjectTemplateModel"/>.
     /// </summary>
-    internal class TransportProjectFoldersModel
+    internal class TransportProjectFolderModel
     {
         /// <summary>
         /// Gets or sets the identifier of the source folder that's created as part of the project template from Transport.

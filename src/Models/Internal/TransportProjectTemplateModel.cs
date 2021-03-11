@@ -24,7 +24,7 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
         /// Gets or sets the folder identifiers that were created as part of the project template creation on the Transport side.
         /// </summary>
         [JsonProperty("folders")]
-        internal TransportProjectFoldersModel Folders { get; set; }
+        internal TransportProjectFolderModel Folders { get; set; }
 
         /// <summary>
         /// Gets or sets the status information from the project template from Transport.
