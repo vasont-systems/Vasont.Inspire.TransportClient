@@ -5,7 +5,6 @@
 //-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient
 {
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.IO;
@@ -13,6 +12,7 @@ namespace Vasont.Inspire.TransportClient
     using System.Net.Http.Headers;
     using System.Threading;
     using System.Threading.Tasks;
+    using Newtonsoft.Json;
     using Vasont.Inspire.TransportClient.Models;
     using Vasont.Inspire.TransportClient.Models.Internal;
 
@@ -21,6 +21,10 @@ namespace Vasont.Inspire.TransportClient
     /// </summary>
     public class TransportClient : BaseClient
     {
+        /// <summary>
+        /// This constructor method.
+        /// </summary>
+        /// <param name="authenticationModel">The <see cref="TransportAuthenticationModel"/> model that carries the authentication info.</param>
         public TransportClient(TransportAuthenticationModel authenticationModel)
             : base(authenticationModel)
         {
@@ -205,6 +209,12 @@ namespace Vasont.Inspire.TransportClient
             return fileModel;
         }
 
+        /// <summary>
+        /// This method will download completed files from a Transport project.
+        /// </summary>
+        /// <param name="requestModel">The <see cref="TransportFileDownloadRequestModel"/> model that carries the request info.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns a <see cref="TransportFileDownloadResponseModel"/> model.</returns>
         public async Task<TransportFileDownloadResponseModel> DownloadFileAsync(TransportFileDownloadRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
         {
             TransportFileDownloadResponseModel responseModel = null;
@@ -223,11 +233,13 @@ namespace Vasont.Inspire.TransportClient
                         client.DefaultRequestHeaders.Add("Authorization", "Bearer " + this.AccessToken);
                         var httpResponse = await client.GetAsync(fileDownloadUrl, cancellationToken);
                         httpResponse.EnsureSuccessStatusCode();
-                        responseModel = new TransportFileDownloadResponseModel();
-                        responseModel.FileStream = await httpResponse.Content.ReadAsStreamAsync();
-                        responseModel.FileId = requestModel.FileId;
-                        responseModel.FileName = requestModel.FileName;
-                        responseModel.FileStreamLength = responseModel.FileStream.Length;
+                        responseModel = new TransportFileDownloadResponseModel
+                        {
+                            FileStream = await httpResponse.Content.ReadAsStreamAsync(),
+                            FileId = requestModel.FileId,
+                            FileName = requestModel.FileName,
+                            FileStreamLength = responseModel.FileStream.Length
+                        };
                     }
                     catch (Exception ex)
                     {
@@ -246,7 +258,7 @@ namespace Vasont.Inspire.TransportClient
         #endregion
 
         /// <summary>
-        /// Retrieves the project template from Transport.
+        /// This internal method will call the API endpoints to retrieve the project template from Transport.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Returns a <see cref="TransportProjectTemplateModel"/> model.</returns>
@@ -265,6 +277,12 @@ namespace Vasont.Inspire.TransportClient
             return response;
         }
 
+        /// <summary>
+        /// This internal method will call the API endpoints to create a Transport project.
+        /// </summary>
+        /// <param name="requestModel">The <see cref="TransportProjectRequestModel"/> model that carries the request info.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns a <see cref="TransportProjectTemplateModel"/> model.</returns>
         internal async Task<TransportProjectTemplateModel> CreateProjectAsync(TransportProjectRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
         {
             TransportProjectTemplateModel response = null;
@@ -280,6 +298,12 @@ namespace Vasont.Inspire.TransportClient
             return response;
         }
 
+        /// <summary>
+        /// This internal method will call the API endpoints to update a Transport project.
+        /// </summary>
+        /// <param name="requestModel">The <see cref="TransportProjectRequestModel"/> model that carries the request info.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns the success status of the call to update a Transport project.</returns>
         internal async Task<bool> UpdateProjectAsync(TransportProjectRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
         {
             // If we're not authenticated then call the Authenticate method
@@ -428,6 +452,12 @@ namespace Vasont.Inspire.TransportClient
 
         #endregion
 
+        /// <summary>
+        /// This internal method will call the API endpoints to upload a file to a Transport project.
+        /// </summary>
+        /// <param name="requestModel">The <see cref="TransportFileUploadRequestModel"/> model that carries the request info.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns a <see cref="TransportFileUploadResponseModel"/> model.</returns>
         internal async Task<TransportFileUploadResponseModel> UploadFilesAsync(TransportFileUploadRequestModel requestModel, CancellationToken cancellationToken = default(CancellationToken))
         {
             List<TransportFileUploadResponseModel> responseList = null;

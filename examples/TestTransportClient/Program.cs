@@ -64,8 +64,8 @@ namespace TestTransportClient
                             Console.WriteLine("Authentication successful. Creating a Transport project...");
 
                             TransportSubmissionProjectModel projectModel = new TransportSubmissionProjectModel();
-                            projectModel.ProjectName = "Test Project from the Transport Test Client - 01-07-21-2";
-                            projectModel.ProjectDescription = "This test project was created using the Transport Test Client - 3-3";
+                            projectModel.ProjectName = $"Test Project from the Transport Test Client - {DateTime.UtcNow}";
+                            projectModel.ProjectDescription = $"This test project was created using the Transport Test Client on {DateTime.UtcNow}";
                             projectModel.SourceLanguage = "en";
                             projectModel.TargetLanguages = new List<string> { "fr" };
 
@@ -120,6 +120,10 @@ namespace TestTransportClient
                                         {
                                             // add to the import request model
                                             Console.WriteLine($"Downloaded {fileDownloadResponseModel.FileName}. File stream length = {fileDownloadResponseModel.FileStreamLength}");
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine($"Failed to download '{fileDownloadResponseModel.FileName}'.");
                                         }
                                     }
                                     catch (Exception ex)
