@@ -5,13 +5,13 @@
 //-----------------------------------------------------------------------
 namespace Vasont.Inspire.TransportClient.Models.Internal
 {
-    using Newtonsoft.Json;
     using System;
+    using Newtonsoft.Json;
 
     /// <summary>
     /// This class represents the <see cref="TransportFileUploadResponseModel"/> that's received after uploading files to Transport.
     /// </summary>
-    class TransportFileUploadResponseModel
+    internal class TransportFileUploadResponseModel
     {
         /// <summary>
         /// Gets or sets the file identifier param from Transport for the file that just got uploaded.

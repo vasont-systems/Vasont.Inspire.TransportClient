@@ -3,7 +3,6 @@
 // Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
 //-----------------------------------------------------------------------
-
 namespace Vasont.Inspire.TransportClient.Models
 {
     /// <summary>

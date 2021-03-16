@@ -1,5 +1,5 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright file="TransportProjectFilesModel.cs" company="GlobalLink Vasont">
+// <copyright file="TransportProjectFileModel.cs" company="GlobalLink Vasont">
 // Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
 //-----------------------------------------------------------------------
@@ -8,9 +8,9 @@ namespace Vasont.Inspire.TransportClient.Models.Internal
     using Newtonsoft.Json;
 
     /// <summary>
-    /// This class represents the <see cref="TransportProjectFilesModel"/> that's referenced in the <see cref="TransportProjectCreateModel"/>.
+    /// This class represents the <see cref="TransportProjectFileModel"/> that's referenced in the <see cref="TransportProjectCreateModel"/>.
     /// </summary>
-    internal class TransportProjectFilesModel
+    internal class TransportProjectFileModel
     {
         /// <summary>
         /// Gets or sets the file identifier of the file that need to be uploaded to Transport.
