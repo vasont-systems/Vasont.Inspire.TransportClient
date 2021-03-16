@@ -225,21 +225,17 @@ namespace Vasont.Inspire.TransportClient
                 {
                     HttpClient client = new HttpClient();
 
-                    var fileInfo = new FileInfo($"{requestModel.FileName}");
-
                     try
                     {
                         string fileDownloadUrl = $"{this.Configuration.ResourceUri}{this.Configuration.RoutePrefix}/Download/files?portalEntryIds={requestModel.FileId.ToString()}";
                         client.DefaultRequestHeaders.Add("Authorization", "Bearer " + this.AccessToken);
                         var httpResponse = await client.GetAsync(fileDownloadUrl, cancellationToken);
                         httpResponse.EnsureSuccessStatusCode();
-                        responseModel = new TransportFileDownloadResponseModel
-                        {
-                            FileStream = await httpResponse.Content.ReadAsStreamAsync(),
-                            FileId = requestModel.FileId,
-                            FileName = requestModel.FileName,
-                            FileStreamLength = responseModel.FileStream.Length
-                        };
+                        responseModel = new TransportFileDownloadResponseModel();
+                        responseModel.FileStream = await httpResponse.Content.ReadAsStreamAsync();
+                        responseModel.FileId = requestModel.FileId;
+                        responseModel.FileName = requestModel.FileName;
+                        responseModel.FileStreamLength = responseModel.FileStream.Length;
                     }
                     catch (Exception ex)
                     {
